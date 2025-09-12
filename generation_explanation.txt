@@ -1,0 +1,69 @@
+# QINetMNLP Text Generation: Detailed Explanation
+
+## Overview
+The text generation process in `generate1.py` uses a trained QINetMNLP model to generate text, character by character, based on a prompt. The process involves model loading, prompt encoding, iterative sampling, and decoding. Below is a detailed breakdown, including the equations involved.
+
+---
+
+## 1. Model Loading
+- The model is loaded from a checkpoint, restoring its weights and configuration.
+- The model is set to evaluation mode (`model.eval()`).
+
+## 2. Prompt Encoding
+- The prompt string is converted to a list of byte values (integers 0-255) using `ord(c)`.
+- A special CLS token (256) is prepended to the sequence.
+- The prompt is truncated if it exceeds the model's maximum sequence length.
+
+## 3. Iterative Generation Loop
+For each generation step (up to `max_new_tokens`):
+
+### a. Model Forward Pass
+- The current sequence tensor `x` is passed to the model:
+  ```python
+  out = model(x)
+  lm_logits = out['lm_logits']
+  ```
+- `lm_logits` has shape `[batch, seq_len, vocab_size]`.
+- The logits for the last token are selected:
+  ```python
+  logits = lm_logits[:, -1, :] / temperature
+  ```
+
+### b. Top-k and Top-p (Nucleus) Sampling
+- **Top-k**: Only the `k` most likely tokens are considered. Others are set to `-inf`.
+- **Top-p**: The smallest set of tokens whose cumulative probability exceeds `p` is kept.
+- The probabilities are computed using the softmax function:
+  $$ p_i = \frac{\exp(l_i)}{\sum_j \exp(l_j)} $$
+  where $l_i$ is the logit for token $i$.
+- Cumulative probabilities are used to filter tokens for top-p:
+  $$ \text{cumulative}_i = \sum_{j=1}^i p_{(j)} $$
+  where $p_{(j)}$ are sorted in descending order.
+
+### c. Sampling the Next Token
+- A token is sampled from the filtered probability distribution using multinomial sampling:
+  ```python
+  next_token = torch.multinomial(probs, num_samples=1)
+  ```
+- The sampled token is appended to the sequence.
+
+### d. Decoding
+- The sampled token is converted back to a character using `chr(token_val)`.
+- The process repeats until a stopping condition is met (e.g., end of sentence, max tokens).
+
+## 4. Output
+- The generated characters are joined into a string and returned as the generated text.
+
+---
+
+## Key Equations
+- **Softmax:**
+  $$ p_i = \frac{\exp(l_i)}{\sum_j \exp(l_j)} $$
+- **Top-p (Nucleus) Sampling:**
+  $$ \text{Keep smallest set } S \text{ such that } \sum_{i \in S} p_i > p $$
+- **Multinomial Sampling:**
+  $$ \text{Sample } t \sim \text{Multinomial}(p_1, ..., p_n) $$
+
+---
+
+## File Output
+This explanation is written to `generation_explanation.txt`.
